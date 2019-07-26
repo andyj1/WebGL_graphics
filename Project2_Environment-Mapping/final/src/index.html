@@ -1,0 +1,266 @@
+ <!--   
+    ECE462 - Computer Graphics Spring 2019
+    Environment Mapping using Skybox and Cubemap
+    Jongoh (Andy) Jeong  
+    May 5, 2019 
+-->
+<!DOCTYPE HTML>
+<html lang="en">
+
+<head>
+    <title>Environment Mapping with Skybox and Cubemap</title>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" media="screen" href="../css/main.css" />
+    <script type="text/javascript" src="../common/webgl_utils.js" defer></script>
+    <script type="text/javascript" src="../common/gl-matrix-min.js" defer></script>
+    <script type="text/javascript" src="../common/jquery-3.1.1.min.js" defer></script>
+    <script type="text/javascript" src="index.js" defer></script>
+
+</head>
+
+<script id="shader-vs-skybox" type="x-shader/x-vertex">
+    attribute vec3 aVertexPosition;
+
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+
+    varying vec3 vertices;
+
+    void main(void) {
+        vertices = aVertexPosition;
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+    }
+</script>
+
+<script id="shader-fs-skybox" type="x-shader/x-fragment">
+    precision mediump float;
+
+    varying vec3 vertices;
+
+    uniform samplerCube uCubeSampler;
+
+    void main(void) {
+        gl_FragColor = textureCube(uCubeSampler, vertices);
+    }
+</script>
+
+<script id="shader-vs-reflectingObject" type="x-shader/x-vertex">
+    attribute vec3 aVertexPosition;
+    attribute vec3 aVertexNormal;
+
+    uniform mat4 uMVMatrix;
+    uniform mat4 uPMatrix;
+
+    varying vec3 normalInterp;
+    varying vec3 vertices;
+
+    void main(void) {
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+        vertices = (uMVMatrix * vec4(aVertexPosition, 1.0)).xyz;
+        normalInterp = normalize(aVertexNormal);
+    }
+</script>
+
+
+<script id="shader-fs-reflectingObject" type="x-shader/x-fragment">
+    precision mediump float;
+
+    uniform mat3 uNMatrix;
+    uniform mat3 uViewTransform;
+    varying vec3 vertices;
+    varying vec3 normalInterp;
+    
+    uniform vec3 uLightPosition; // light source
+    uniform vec3 uAmbientLightColor;
+    uniform vec3 uSpecularLightColor;
+    uniform vec3 uDiffuseLightColor;
+
+    uniform samplerCube uSkyboxSampler;
+    
+    uniform float uShininess;
+
+    void main(void) {
+        // Phong reflection model
+        // Phong shading (per fragment); reference: https://stackoverflow.com/questions/49966240/phong-and-gouraud-shading-webgl
+
+        // Calculate the vector (l) to the light source
+        vec3 vectorToLightSource = normalize(uLightPosition - vertices);
+
+        // Transform the normal (n) to eye coordinates
+        vec3 normalEye = normalize(uNMatrix * normalInterp);
+
+        // Calculate n dot l for diffuse lighting
+        float diffuseLightWeighting = max(dot(normalEye,
+                                    vectorToLightSource), 0.0);
+
+        // Calculate the reflection vector (r) that is needed for specular light
+        vec3 reflectionVector = normalize(reflect(-vectorToLightSource,normalEye));
+
+        vec3 eyeDirection = normalize(-vertices);
+
+        float rdotv = max(dot(reflectionVector, eyeDirection), 0.0);
+
+        float specularLightWeighting = pow(rdotv, uShininess);
+
+        vec3 l = uViewTransform * reflect(eyeDirection, normalEye);
+
+        // get texture color from skybox
+        vec4 vSkyboxColor = textureCube(uSkyboxSampler, -l);
+
+        // Sum up all three reflection components
+        vec3 vColor = (uAmbientLightColor * vSkyboxColor.xyz)
+        + (uDiffuseLightColor * vSkyboxColor.xyz) * diffuseLightWeighting
+        + (uSpecularLightColor * vSkyboxColor.xyz) * specularLightWeighting;
+
+        gl_FragColor = vec4(vColor, 1.0);
+    }
+
+    // reference: http://www.mathematik.uni-marburg.de/~thormae/lectures/graphics1/code/WebGLShaderLightMat/ShaderLightMat.html
+</script>
+
+<body id="body">
+    <h3>Environment Mapping<em>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;* best in full screen!</em></h3>
+        <div id="config">
+            <table>
+                <tr>
+                    <td id="fps-counter">FPS:</td>
+                    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+                    <td id="resolution">0x0</td>
+                </tr>
+            </table>
+            <form>
+                <fieldset>
+                    <legend>Options</legend>
+                    <label>Reflective Object
+                        <select id="object">
+                            <option value="0">Utah Teapot</option>
+                            <option value="1">Cow</option>
+                            <option value="2">Cube</option>
+                            <option value="3">Cube2</option>
+                            <option value="4">Icosahedron</option>
+                            <option value="5">Octahedron</option>
+                            <option value="6">Shutte</option>
+                            <option value="7">Tetrahedron</option>
+                            <option value="8">Violin Case</option>
+                            <option value="9">Airboat</option>
+                            <option value="10">TeddyBear</option>
+                        </select>
+                    </label>
+                    <br/>
+                    <label>Surroundings
+                        <select id="skybox">
+                            <option value="0">Yokohama</option>
+                            <option value="1">Street1</option>
+                            <option value="2">Street2</option>
+                            <option value="3">Grimmnight</option>
+                            <option value="4">Interstellar</option>
+                            <option value="5">Miramar</option>
+                            <option value="6">Stormydays</option>
+                            <option value="7">Violentdays</option>
+                        </select>
+                    </label>
+                </fieldset>
+            </form>
+            <div> Vary Position of Eye: 
+                <table>
+                    <tr>
+                        <td>
+                            x: <input type="range" min="-5" max="5" value="0" class="slider" id="eye-x">
+                                <td id="eyex-tag"></td>
+                            </input>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            y: <input type="range" min="-5" max="5" value="0" class="slider" id="eye-y">
+                                <td id="eyey-tag"></td>
+                            </input>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            z: <input type="range" min="-5" max="5" value="0" class="slider" id="eye-z">
+                                <td id="eyez-tag"></td>
+                            </input>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            <div> Vary Position of Light Source:
+                <table>
+                    <tr>
+                        <td>
+                            x: <input type="range" min="-50" max="50" value="0" class="slider" id="light-x">
+                                <td id="lightx-tag"></td>
+                            </input>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            y: <input type="range" min="-50" max="50" value="0" class="slider" id="light-y">
+                            <td id="lighty-tag"></td>
+                            </input>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            z: <input type="range" min="-50" max="50" value="0" class="slider" id="light-z">
+                            <td id="lightz-tag"></td>
+                            </input>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Shininess: <input type="range" min="-20" max="20" step="0.1" value="5" class="slider" id="shininess">
+                            <td id="shininess-tag"></td>
+                            </input>
+                        </td>
+                    </tr> 
+                </table>
+            </div>
+            <div> Vary Scale of the Object:
+                    <table>
+                        <tr>
+                            <td>
+                                x: <input type="range" min="0" max="2" value="0.4" step="0.1" class="slider" id="scale-x">
+                                    <td id="scalex-tag"></td>
+                                </input>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                y: <input type="range" min="0" max="2" value="0.4" step="0.1" class="slider" id="scale-y">
+                                    <td id="scaley-tag"></td>
+                                </input>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                z: <input type="range" min="0" max="2" value="0.4" step="0.1" class="slider" id="scale-z">
+                                    <td id="scalez-tag"></td>
+                                </input>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                Perspective Angle: <input type="range" min="0" max="180" value="45" step="0.1" class="slider" id="perspective-angle">
+                                <td id="perspective-tag"></td>
+                                </input>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <input type="button" id="reset_btn" value="reset" onclick="reset()"></input>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+        </div>
+        <canvas id="gl-canvas" width="1200" height="600">
+            Your browser doesn't support HTML5 canvas element.
+        </canvas>
+</body>
+
+</html>

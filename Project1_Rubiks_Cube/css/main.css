@@ -1,0 +1,43 @@
+
+#main {
+    width:  90vw;
+    height: 80vh;
+    display: inline-block;
+    position: absolute;
+    font-size: 15px;
+}
+
+#gl-canvas {
+    width: 40vw;
+    height: 80vh;
+    border: 1px solid black; 
+    background-color: aliceblue; 
+    margin-left: 1px; 
+    float:left
+    /* display: inline-block; */
+}
+
+#menu {
+    float: right;
+    position: relative;
+    width: 500px;
+    height: 512px;
+}
+
+.orientation > div > img {
+    width: 50%;
+    height: 20vh;
+    padding-left: 10vw;
+    margin: auto;
+}
+
+tr > td {
+    padding-left: 30px;
+    font-size: 13px;
+}
+
+td > button {
+   font-size: 15px; 
+   width: 50px;
+   height: 20px;
+}

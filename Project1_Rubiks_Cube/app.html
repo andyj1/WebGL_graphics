@@ -1,0 +1,232 @@
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" type="text/css" media="screen" href="css/main.css" />
+    <script type="text/javascript" src="Common/MV.js" defer></script>
+    <script type="text/javascript" src="Common/webgl-utils.js" defer></script>
+    <script type="text/javascript" src="Common/initShaders.js" defer></script>
+    <script type="text/javascript" src="app.js" defer></script>
+
+    <title>Interactive Rubik's Cube</title>
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        precision mediump float; 
+        attribute vec4 position; 
+        attribute vec4 color; 
+        varying vec4 fColor; 
+        uniform mat4 projectionMatrix; 
+        uniform mat4 modelviewMatrix; 
+        void main() { 
+            gl_Position = projectionMatrix * modelviewMatrix * position; 
+            fColor = color; 
+        }
+    </script>
+
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        precision mediump float; 
+        varying vec4 fColor;
+        void main() { 
+            gl_FragColor = fColor; 
+        }
+    </script>
+</head>
+
+<body>
+    <h2>Interactive Rubik's Cube</h2>
+    <div id="main">
+        <canvas id="gl-canvas">
+                Your browser doesn't support the HTML5 canvas element.
+            </canvas>
+        <div style="float:left; position:absolute">* move around the canvas using mouse to see zoomed in/out view
+            <!-- <br> &nbsp;</br> -->
+            <br><b>Display Limitations</b></br>
+            * up/down: if you go more than 90 degrees vertical in either direction, it shows the other side
+            <br>* sideways: can only go 90 degrees horizontal in either direction</br>
+        </div>
+
+        <div id="menu">
+            <b>Scramble:</b> &nbsp;&nbsp;
+            <input id="scrambler" type="number" min="1" max="100" value="1" step="1"></input>
+            <button id="scramble_btn">
+                    Scramble
+                </button>
+            <h8>Current State: <b id="cube_state"> </b> </h8>
+            <br/> <br/>
+
+            <b>Save Game:</b> &nbsp;&nbsp;
+            <button id="save_btn" onclick="savefile()" style="width:90px; height:25px;">
+                    Save Game
+                </button>
+            <a download="" href="" id="download_link"></a>
+            <br/> <br/>
+            <b>Load File:</b> &nbsp;&nbsp;
+            <div id="loadException">
+                * if you want to load the same file again, refresh and re-load it.
+            </div>
+            <div style="display: inline-block; border:1px dotted gray ">
+                <h8>Choose file to load:</h8>
+                <input type="file" name="files" id="load_input" accept=".txt">
+                <br/><br/>
+                <h8>Load File:</h8> &nbsp;&nbsp;
+                <button id="load_btn">
+                        Load Game
+                    </button>
+            </div>
+
+
+            <br/> <br/>
+            <div style="float:left">
+                <b>Rotation Speed:</b> &nbsp;
+                <div style="display: inline-block; border:1px dotted gray "> 1
+                    <input id="speedSlider" type="range" min="1" max="10" step="1" value="1" oninput="setRotationSpeed(this.value)" onchange="setRotationSpeed(this.value)" /> 10
+                </div>
+            </div>
+            <br/><br/>
+            <div style="float:left"> <b>Rotations:</b>
+                <div>From the viewer's angle:</div>
+                <div class="orientation">
+                    <table style="display: block; text-align:center">
+                        <td> &nbsp; &nbsp; </td>
+                        <td>
+                            <div style="padding-left: 1%">Coordinate System</div>
+                            <div>&nbsp;</div>
+                            <img src="resources/following_RHCS.png" alt="Right Handed System" width="150%"></img>
+                        </td>
+                        <td>
+                            <div style="padding-left: 1%">Cube Orientations</div>
+                            <div>&nbsp;</div>
+                            <img src="resources/orientation.png" alt="Cube Rotation Orientations" width="80%"></img>
+                        </td>
+                        <td>
+                            <div>
+                                swapping(update()) function derivation
+                                <a href="resources/swapping_derivation.pdf">PDF Link</a>
+                            </div>
+                        </td>
+                    </table>
+                </div>
+                <!-- buttons to rotate -->
+                <table style="display: block; text-align: center">
+                    <tr>
+                        <td></td>
+                        <td style="font-style: italic">Clockwise</td>
+                        <td></td>
+                        <td style="font-style: italic">Counter-Clockwise</td>
+                    </tr>
+                    <tr>
+                        <td><span>1 [keyboard: q]</span></td>
+                        <td>
+                            <button id="xneg1cw"> < </button>
+                        </td>
+                        <td><span>1 [keyboard: a]</span></td>
+                        <td>
+                            <button id="xneg1ccw"> > </button>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td><span>2 [keyboard: w]</span></td>
+                        <td>
+                            <button id="x0cw"> < </button>
+                        </td>
+                        <td><span>2 [keyboard: s]</span></td>
+                        <td>
+                            <button id="x0ccw"> > </button>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td><span>3 [keyboard: e]</span></td>
+                        <td>
+                            <button id="xpos1cw"> < </button>
+                        </td>
+                        <td><span>3 [keyboard: d]</span></td>
+                        <td>
+                            <button id="xpos1ccw"> > </button>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td> &nbsp; </td>
+                    </tr>
+
+                    <tr>
+                        <td><span>4 [keyboard: r]</span></td>
+                        <td>
+                            <button id="zneg1cw"> < </button>
+                        </td>
+                        <td><span>4 [keyboard: f]</span></td>
+                        <td>
+                            <button id="zneg1ccw"> > </button>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td><span>5 [keyboard: t]</span></td>
+                        <td>
+                            <button id="z0cw"> < </button>
+                        </td>
+                        <td><span>5 [keyboard: g]</span></td>
+                        <td>
+                            <button id="z0ccw"> > </button>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td><span>6 [keyboard: y]</span></td>
+                        <td>
+                            <button id="zpos1cw"> < </button>
+                        </td>
+                        <td><span>6 [keyboard: h]</span></td>
+                        <td>
+                            <button id="zpos1ccw"> > </button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td> &nbsp; </td>
+                    </tr>
+                    <tr>
+                        <td><span>7 [keyboard: u]</span></td>
+                        <td>
+                            <button id="yneg1cw"> < </button>
+                        </td>
+                        <td><span>7 [keyboard: j]</span></td>
+                        <td>
+                            <button id="yneg1ccw"> < </button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><span>8 [keyboard: i]</span></td>
+                        <td>
+                            <button id="y0cw"> < </button>
+                        </td>
+                        <td><span>8 [keyboard: k]</span></td>
+                        <td>
+                            <button id="y0ccw"> > </button>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td><span>9 [keyboard: o]</span></td>
+                        <td>
+                            <button id="ypos1cw"> < </button>
+                        </td>
+                        <td><span>9 [keyboard: l]</span></td>
+                        <td>
+                            <button id="ypos1ccw"> > </button>
+                        </td>
+                </table>
+                </tr>
+                <div>
+                    The cube planes should be oriented according to the viewer's angle.
+                </div>
+            </div>
+        </div>
+
+        <div>
+        </div>
+</body>
+
+</html>

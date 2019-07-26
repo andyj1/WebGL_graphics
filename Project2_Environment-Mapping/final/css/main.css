@@ -1,0 +1,22 @@
+body {
+    overflow: visible;
+}
+
+#config {
+    position: absolute;
+    float: left;
+    margin-left: 20px;
+    width: 18%;
+    height: 90%;
+    font-family: "Comic Sans MS";
+    font-size: 11px;
+    color: black;
+    border: 1px dotted black;
+}
+
+#gl-canvas {
+    border: 1px solid black; 
+    background-color: aliceblue; 
+    margin-left: 20%; 
+    display: inline-block;
+}
